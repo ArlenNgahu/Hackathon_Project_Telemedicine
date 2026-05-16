@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0">
+    <title>Accessible Telemedicine - Voice-First Healthcare</title>
+
+    <!-- Accessibility: High contrast mode support -->
+    <style>
+        :root {
+            --primary-color: #0066cc;
+            --secondary-color: #ff6600;
+            --bg-color: #ffffff;
+            --text-color: #000000;
+            --error-color: #cc0000;
+            --success-color: #009900;
+            --target-size: 80px;
+            --font-size: 24px;
+            --spacing: 20px;
+        }
+
+        /* High contrast mode */
+        @media (prefers-contrast: high) {
+            :root {
+                --primary-color: #0000ff;
+                --bg-color: #000000;
+                --text-color: #ffffff;
+            }
+        }
+
+        /* Dark mode */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #1a1a1a;
+                --text-color: #ffffff;
+            }
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: var(--font-size);
+            line-height: 1.6;
+            background: var(--bg-color);
+            color: var(--text-color);
+            padding: var(--spacing);
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        /* Extra large touch targets for motor impairments */
+        .big-button {
+            width: 100%;
+            min-height: var(--target-size);
+            font-size: var(--font-size);
+            padding: 20px;
+            margin: 10px 0;
+            border: 3px solid var(--primary-color);
+            border-radius: 15px;
+            background: var(--primary-color);
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .big-button:hover, .big-button:focus {
+            background: var(--secondary-color);
+            border-color: var(--secondary-color);
+            outline: 4px solid white;
+            outline-offset: 4px;
+        }
+
+        /* Voice activation button - pulsing for visibility */
+        .voice-button {
+            background: var(--secondary-color);
+            border-radius: 50%;
+            width: 120px;
+            height: 120px;
+            font-size: 48px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 102, 0, 0.7); }
+            70% { box-shadow: 0 0 0 30px rgba(255, 102, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 102, 0, 0); }
+        }
+
+        .voice-active {
+            background: var(--error-color);
+            animation: recording 1s infinite;
+        }
+
+        @keyframes recording {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        /* Large text input for eye tracking */
+        .big-input {
+            width: 100%;
+            min-height: 200px;
+            font-size: var(--font-size);
+            padding: 20px;
+            border: 3px solid #ccc;
+            border-radius: 15px;
+            margin: 10px 0;
+        }
+
+        .big-input:focus {
+            border-color: var(--primary-color);
+            outline: 4px solid var(--primary-color);
+            outline-offset: 4px;
+        }
+
+        /* Status indicators */
+        .status-box {
+            padding: 30px;
+            border-radius: 15px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .status-critical {
+            background: #ffcccc;
+            border: 4px solid var(--error-color);
+            color: var(--error-color);
+        }
+
+        .status-high {
+            background: #ffe6cc;
+            border: 4px solid var(--secondary-color);
+            color: #cc5200;
+        }
+
+        .status-medium {
+            background: #ffffcc;
+            border: 4px solid #cccc00;
+        }
+
+        .status-low {
+            background: #ccffcc;
+            border: 4px solid var(--success-color);
+        }
+
+        /* Queue position display */
+        .queue-position {
+            font-size: 72px;
+            font-weight: bold;
+            text-align: center;
+            color: var(--primary-color);
+        }
+
+        /* Scanning interface for switch access */
+        .scan-container {
+            border: 4px solid transparent;
+            padding: 20px;
+            margin: 10px 0;
+            transition: border-color 0.5s;
+        }
+
+        .scan-container.scanning {
+            border-color: var(--secondary-color);
+            background: rgba(255, 102, 0, 0.1);
+        }
+
+        /* Emergency button - always visible */
+        .emergency-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--error-color);
+            color: white;
+            border-radius: 50%;
+            width: 100px;
+            height: 100px;
+            font-size: 36px;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        /* Screen reader only */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0,0,0,0);
+            border: 0;
+        }
+
+        /* Caregiver mode banner */
+        .caregiver-banner {
+            background: #e6f2ff;
+            border: 3px solid var(--primary-color);
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        /* Dwell time indicator for eye tracking */
+        .dwell-target {
+            position: relative;
+        }
+
+        .dwell-progress {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 8px;
+            background: var(--secondary-color);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .dwell-target:hover .dwell-progress,
+        .dwell-target:focus .dwell-progress {
+            width: 100%;
+            transition: width 2s linear; /* Configurable dwell time */
+        }
+
+        /* Responsive */
+        @media (max-width: 600px) {
+            :root {
+                --font-size: 20px;
+                --target-size: 70px;
+            }
+        }
+    </style>
+</head>
+<body role="main" aria-label="Accessible Telemedicine Interface">
+
+    <!-- Skip to main content for screen readers -->
+    <a href="#main-content" class="sr-only">Skip to main content</a>
+
+    <!-- Header -->
+    <header role="banner">
+        <h1 style="font-size: 36px; text-align: center; margin-bottom: 10px;">
+            🏥 Accessible Healthcare
+        </h1>
+        <p style="text-align: center; color: #666;" id="status-message">
+            Voice-first interface for quadriplegic patients
+        </p>
+    </header>
+
+    <!-- Caregiver Mode Indicator -->
+    <div id="caregiver-banner" class="caregiver-banner" style="display: none;" role="status">
+        👤 <strong>Caregiver Mode Active</strong> - Acting on behalf of patient
+    </div>
+
+    <!-- Main Content -->
+    <main id="main-content">
+
+        <!-- Voice Control Section -->
+        <section aria-labelledby="voice-heading" style="text-align: center; margin: 40px 0;">
+            <h2 id="voice-heading" class="sr-only">Voice Control</h2>
+
+            <button 
+                id="voice-btn" 
+                class="big-button voice-button dwell-target"
+                aria-label="Activate voice commands. Say 'report symptoms', 'check queue', or 'emergency'"
+                onclick="toggleVoice()"
+            >
+                🎤
+                <div class="dwell-progress"></div>
+            </button>
+
+            <p style="margin-top: 15px; font-size: 20px;">
+                <strong>Voice Commands:</strong><br>
+                "<em>Report symptoms</em>" · "<em>Check my queue</em>" · "<em>Emergency</em>"
+            </p>
+
+            <div id="voice-feedback" aria-live="polite" aria-atomic="true" style="margin-top: 20px; font-weight: bold; min-height: 30px;">
+            </div>
+        </section>
+
+        <!-- Quick Actions -->
+        <section aria-labelledby="actions-heading">
+            <h2 id="actions-heading" style="font-size: 28px; margin: 30px 0 20px;">Quick Actions</h2>
+
+            <div class="scan-container" id="action-symptom">
+                <button class="big-button dwell-target" onclick="showSymptomForm()" aria-label="Report symptoms">
+                    📝 Report Symptoms
+                    <div class="dwell-progress"></div>
+                </button>
+            </div>
+
+            <div class="scan-container" id="action-queue">
+                <button class="big-button dwell-target" onclick="checkQueueStatus()" aria-label="Check queue status">
+                    ⏱️ Check Queue Status
+                    <div class="dwell-progress"></div>
+                </button>
+            </div>
+
+            <div class="scan-container" id="action-appointment">
+                <button class="big-button dwell-target" onclick="viewAppointments()" aria-label="View appointments">
+                    📅 My Appointments
+                    <div class="dwell-progress"></div>
+                </button>
+            </div>
+        </section>
+
+        <!-- Symptom Reporting Form (Hidden by default) -->
+        <section id="symptom-section" style="display: none;" aria-labelledby="symptom-heading">
+            <h2 id="symptom-heading" style="font-size: 28px; margin: 30px 0 20px;">Report Symptoms</h2>
+
+            <label for="symptoms-input" class="sr-only">Describe your symptoms</label>
+            <textarea 
+                id="symptoms-input" 
+                class="big-input" 
+                placeholder="Describe how you're feeling... (voice input available)"
+                aria-describedby="symptom-help"
+            ></textarea>
+
+            <p id="symptom-help" style="font-size: 18px; color: #666; margin: 10px 0;">
+                Example: "I have a headache and fever since yesterday"
+            </p>
+
+            <div style="display: flex; gap: 15px; margin-top: 20px;">
+                <button class="big-button" onclick="submitSymptoms()" style="flex: 1;">
+                    ✅ Submit
+                </button>
+                <button class="big-button" onclick="cancelSymptom()" style="flex: 1; background: #666;">
+                    ❌ Cancel
+                </button>
+            </div>
+
+            <!-- Triage Result Display -->
+            <div id="triage-result" style="display: none; margin-top: 30px;" role="status" aria-live="polite">
+            </div>
+        </section>
+
+        <!-- Queue Status Display -->
+        <section id="queue-section" style="display: none;" aria-labelledby="queue-heading">
+            <h2 id="queue-heading" style="font-size: 28px; margin: 30px 0 20px;">Queue Status</h2>
+
+            <div id="queue-display" role="status" aria-live="polite">
+                <div class="queue-position" id="queue-position">--</div>
+                <p style="text-align: center; font-size: 24px; margin: 20px 0;">
+                    Your position in queue
+                </p>
+
+                <div class="status-box" id="queue-estimated">
+                    Estimated wait: <strong id="wait-time">-- minutes</strong>
+                </div>
+
+                <div id="teleconsult-offer" style="display: none; margin-top: 30px; padding: 20px; background: #e6f2ff; border-radius: 15px; border: 3px solid var(--primary-color);">
+                    <h3 style="font-size: 24px; margin-bottom: 15px;">⚡ Teleconsult Available</h3>
+                    <p style="margin-bottom: 20px;">
+                        The wait is long. Would you like a video consultation now instead?
+                    </p>
+                    <button class="big-button" onclick="acceptTeleconsult()">
+                        📹 Yes, Start Video Call
+                    </button>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Emergency Button -->
+    <button 
+        class="big-button emergency-button" 
+        onclick="triggerEmergency()"
+        aria-label="Emergency - Call for immediate help"
+    >
+        🚨
+    </button>
+
+    <!-- JavaScript for functionality -->
+    <script>
+        // Configuration for assistive technology
+        const config = {
+            dwellTime: 2000, // ms for eye tracking
+            voiceWakeWord: 'Hey Doc',
+            scanSpeed: 2000, // ms for switch access
+            caregiverMode: false
+        };
+
+        let isListening = false;
+        let recognition = null;
+
+        // Initialize Web Speech API
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onresult = (event) => {
+                const transcript = Array.from(event.results)
+                    .map(result => result[0])
+                    .map(result => result.transcript)
+                    .join('');
+
+                document.getElementById('voice-feedback').textContent = `Heard: "${transcript}"`;
+
+                // Process commands
+                processVoiceCommand(transcript.toLowerCase());
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error', event.error);
+                document.getElementById('voice-feedback').textContent = 'Voice error. Please try again.';
+            };
+        }
+
+        function toggleVoice() {
+            const btn = document.getElementById('voice-btn');
+            const feedback = document.getElementById('voice-feedback');
+
+            if (!recognition) {
+                feedback.textContent = 'Voice not supported in this browser';
+                return;
+            }
+
+            if (isListening) {
+                recognition.stop();
+                btn.classList.remove('voice-active');
+                feedback.textContent = 'Voice control off';
+                isListening = false;
+            } else {
+                recognition.start();
+                btn.classList.add('voice-active');
+                feedback.textContent = 'Listening... Say "report symptoms", "check queue", or "emergency"';
+                isListening = true;
+
+                // Auto-stop after 30 seconds
+                setTimeout(() => {
+                    if (isListening) toggleVoice();
+                }, 30000);
+            }
+        }
+
+        function processVoiceCommand(command) {
+            if (command.includes('symptom') || command.includes('report') || command.includes('pain')) {
+                showSymptomForm();
+                speak('Opening symptom report form');
+            } else if (command.includes('queue') || command.includes('wait') || command.includes('position')) {
+                checkQueueStatus();
+                speak('Checking your queue status');
+            } else if (command.includes('emergency') || command.includes('help') || command.includes('911')) {
+                triggerEmergency();
+            } else if (command.includes('cancel') || command.includes('close')) {
+                hideAllSections();
+            }
+        }
+
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.rate = 0.9; // Slightly slower for clarity
+                utterance.pitch = 1;
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+
+        function showSymptomForm() {
+            hideAllSections();
+            document.getElementById('symptom-section').style.display = 'block';
+            document.getElementById('symptoms-input').focus();
+            speak('Symptom form opened. Please describe how you are feeling.');
+        }
+
+        function cancelSymptom() {
+            document.getElementById('symptom-section').style.display = 'none';
+            document.getElementById('symptoms-input').value = '';
+        }
+
+        async function submitSymptoms() {
+            const symptoms = document.getElementById('symptoms-input').value;
+            if (!symptoms.trim()) {
+                speak('Please enter your symptoms first');
+                return;
+            }
+
+            // Show loading
+            const resultDiv = document.getElementById('triage-result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<p>Analyzing symptoms...</p>';
+            speak('Analyzing your symptoms. Please wait.');
+
+            // Call API
+            try {
+                const response = await fetch('/triage/report', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({
+                        patient_id: 'P001',
+                        symptoms_text: symptoms
+                    })
+                });
+
+                const result = await response.json();
+                displayTriageResult(result);
+            } catch (error) {
+                resultDiv.innerHTML = '<p class="status-critical">Error connecting to server. Please try again.</p>';
+                speak('Error connecting to server');
+            }
+        }
+
+        function displayTriageResult(result) {
+            const div = document.getElementById('triage-result');
+            const priorityClass = `status-${result.priority}`;
+
+            div.innerHTML = `
+                <div class="${priorityClass}">
+                    <h3 style="font-size: 32px; margin-bottom: 15px;">Priority: ${result.priority.toUpperCase()}</h3>
+                    <p style="font-size: 22px; margin-bottom: 15px;">${result.reasoning}</p>
+                    <p style="font-size: 20px;"><strong>Action:</strong> ${result.recommended_action.replace(/_/g, ' ')}</p>
+                    ${result.urgency_minutes ? `<p style="font-size: 20px; margin-top: 10px;"><strong>Urgency:</strong> Within ${result.urgency_minutes} minutes</p>` : ''}
+                </div>
+
+                ${result.recommended_action.includes('hospital') ? `
+                    <button class="big-button" onclick="joinQueue('${result.priority}')" style="margin-top: 20px;">
+                        🏥 Join Hospital Queue
+                    </button>
+                ` : ''}
+
+                ${result.recommended_action.includes('teleconsult') ? `
+                    <button class="big-button" onclick="startTeleconsult()" style="margin-top: 20px; background: var(--success-color);">
+                        📹 Start Video Consultation
+                    </button>
+                ` : ''}
+            `;
+
+            speak(`Triage complete. Priority level ${result.priority}. ${result.reasoning}`);
+        }
+
+        function joinQueue(priority) {
+            // Call API to join queue
+            fetch('/queue/join', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    patient_id: 'P001',
+                    patient_name: 'Test Patient',
+                    priority: priority,
+                    is_pwd: true
+                })
+            })
+            .then(r => r.json())
+            .then(data => {
+                checkQueueStatus();
+                speak(`Joined queue. You are position ${data.position}. Estimated wait ${data.estimated_wait_minutes} minutes.`);
+            });
+        }
+
+        function checkQueueStatus() {
+            hideAllSections();
+            document.getElementById('queue-section').style.display = 'block';
+
+            // Mock data - would fetch from API
+            document.getElementById('queue-position').textContent = '3';
+            document.getElementById('wait-time').textContent = '25';
+
+            // Show teleconsult offer if wait is long
+            if (25 > 20) {
+                document.getElementById('teleconsult-offer').style.display = 'block';
+            }
+
+            speak('You are position 3 in queue. Estimated wait 25 minutes.');
+        }
+
+        function acceptTeleconsult() {
+            speak('Starting video consultation. Please allow camera access when prompted.');
+            // Would open video meeting
+        }
+
+        function viewAppointments() {
+            speak('Showing your appointments');
+            // Would show appointment list
+        }
+
+        function triggerEmergency() {
+            speak('Emergency alert sent. Stay calm. Help is coming.');
+
+            // Flash screen for attention
+            document.body.style.background = '#ff0000';
+            setTimeout(() => {
+                document.body.style.background = '';
+            }, 500);
+
+            // Call emergency API
+            fetch('/voice/command', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    patient_id: 'P001',
+                    command_type: 'emergency'
+                })
+            });
+
+            alert('🚨 EMERGENCY ALERT SENT\n\nEmergency contacts notified. Stay calm, help is on the way.\n\nIf possible, describe your emergency.');
+        }
+
+        function hideAllSections() {
+            document.getElementById('symptom-section').style.display = 'none';
+            document.getElementById('queue-section').style.display = 'none';
+        }
+
+        // Switch access scanning (for single-button control)
+        let scanIndex = 0;
+        let scanElements = [];
+        let scanning = false;
+
+        function startScanning() {
+            scanElements = document.querySelectorAll('.scan-container');
+            scanning = true;
+            scanNext();
+        }
+
+        function scanNext() {
+            if (!scanning) return;
+
+            // Remove previous highlight
+            scanElements.forEach(el => el.classList.remove('scanning'));
+
+            // Highlight current
+            if (scanElements[scanIndex]) {
+                scanElements[scanIndex].classList.add('scanning');
+            }
+
+            // Move to next
+            scanIndex = (scanIndex + 1) % scanElements.length;
+
+            setTimeout(scanNext, config.scanSpeed);
+        }
+
+        function selectScanned() {
+            const current = document.querySelector('.scan-container.scanning button');
+            if (current) current.click();
+        }
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Space or Enter to select scanned item
+            if (e.code === 'Space' || e.code === 'Enter') {
+                if (scanning) {
+                    e.preventDefault();
+                    selectScanned();
+                }
+            }
+            // Escape to cancel
+            if (e.code === 'Escape') {
+                hideAllSections();
+            }
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check for assistive technology preferences
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('scan') === 'true') {
+                startScanning();
+            }
+            if (params.get('caregiver') === 'true') {
+                config.caregiverMode = true;
+                document.getElementById('caregiver-banner').style.display = 'block';
+            }
+        });
+    </script>
+
+</body>
+</html>
