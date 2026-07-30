@@ -5,7 +5,6 @@ Uses Pydantic Settings for environment variable management.
 
 from pydantic_settings import BaseSettings
 from typing import List, Optional
-import os
 
 
 class Settings(BaseSettings):
@@ -18,15 +17,21 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"  # development, staging, production
 
     # Security
-    SECRET_KEY: str = "ByteShift@2026"
+    SECRET_KEY: str = "your-secret-key-change-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 1 day
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://user:password@localhost/quadcare"
+    # NOTE: uses the psycopg (v3) driver, which SQLAlchemy can run in both
+    # sync and async mode from the same "postgresql+psycopg://" URL depending
+    # on whether create_engine() or create_async_engine() is used. This keeps
+    # us on the psycopg[binary] dependency already pinned in requirements.txt
+    # instead of adding a second Postgres driver (asyncpg) for no reason.
+    DATABASE_URL: str = "postgresql+psycopg://user:password@localhost/quadcare"
     DATABASE_POOL_SIZE: int = 20
     DATABASE_MAX_OVERFLOW: int = 10
+    DATABASE_ECHO: bool = False
 
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"

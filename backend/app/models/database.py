@@ -71,8 +71,17 @@ class Patient(Base):
     first_name = Column(String(100), nullable=False)
     last_name = Column(String(100), nullable=False)
     email = Column(String(255), unique=True, nullable=True)
-    phone_primary = Column(String(20), nullable=False)
+    # phone_primary doubles as the login identifier (see auth/login), so it
+    # must be unique. Expected format is E.164 (e.g. "+254712345678").
+    phone_primary = Column(String(20), unique=True, nullable=False, index=True)
     phone_emergency = Column(String(20), nullable=True)
+
+    # Authentication
+    password_hash = Column(String(255), nullable=False)
+
+    # Localization - drives which language SMS/notification templates and
+    # Kiswahili-aware triage keyword matching use for this patient.
+    preferred_language = Column(String(10), default="en", nullable=False)
 
     # Disability Information (Critical for accessibility)
     disability_type = Column(Enum(DisabilityType), default=DisabilityType.QUADRIPLEGIA)

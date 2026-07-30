@@ -38,7 +38,7 @@ class QuadriplegicTriageModel:
         self.num_labels = 4
         self.model = None  # Loaded on demand
 
-        # Medical keyword database for rule-based fallback
+        # Medical keyword database for rule-based fallback (English)
         self.critical_keywords = [
             "can't breathe", "breathing difficulty", "chest pain", "heart attack",
             "unconscious", "seizure", "choking", "severe bleeding", "anaphylaxis",
@@ -58,7 +58,37 @@ class QuadriplegicTriageModel:
             "sleep problems", "appetite loss", "skin irritation", "bladder issues"
         ]
 
-        # SCI-specific complications
+        # Kiswahili mirror of the keyword lists above. Word-for-word mapping
+        # is preserved (same index order) so the two lists stay easy to audit
+        # side by side.
+        #
+        # SAFETY NOTE: these translations were produced for MVP coverage and
+        # have NOT been clinically or linguistically reviewed by a fluent
+        # Kiswahili speaker with a medical background. Idiom, regional
+        # dialect (e.g. coastal vs. up-country Kiswahili, Sheng mixing), and
+        # clinical nuance can all change what counts as an emergency phrase.
+        # Do not treat this list as production-validated; get it reviewed
+        # before relying on it for real triage decisions.
+        self.critical_keywords_sw = [
+            "siwezi kupumua", "shida ya kupumua", "maumivu ya kifua", "shambulio la moyo",
+            "amepoteza fahamu", "kifafa", "kubanwa na kitu kooni", "kutokwa na damu nyingi", "mzio mkali",
+            "dysreflexia ya kujiendesha", "ad", "shinikizo la damu limepanda ghafla", "kichwa kinaunguruma",
+            "uso mwekundu", "kutokwa jasho juu ya jeraha", "ngozi ya kuku", "pua kuziba",
+            "bradycardia", "mapigo ya moyo polepole", "shinikizo la damu la juu", "sistoli zaidi ya 200"
+        ]
+
+        self.high_keywords_sw = [
+            "homa", "maambukizi", "nimonia", "uti", "maambukizi ya njia ya mkojo",
+            "kidonda cha kulala", "jeraha", "mfupa kuvunjika", "misuli kukakamaa", "maumivu makali",
+            "kichefuchefu", "kutapika", "kuvimbiwa", "choo kukwama", "upungufu wa maji mwilini"
+        ]
+
+        self.medium_keywords_sw = [
+            "maumivu", "usumbufu", "mikakamao", "ugumu wa mwili", "wasiwasi", "sonona",
+            "shida za usingizi", "kupungua hamu ya kula", "muwasho wa ngozi", "shida za kibofu"
+        ]
+
+        # SCI-specific complications (English)
         self.sci_complications = {
             "autonomic_dysreflexia": {
                 "keywords": ["headache", "high blood pressure", "sweating", "flushed", "stuffy nose"],
@@ -92,6 +122,29 @@ class QuadriplegicTriageModel:
             }
         }
 
+        # Kiswahili mirror of sci_complications keyword phrases. Same keys,
+        # priority/action/urgency come from `sci_complications` above -
+        # only the phrases used for matching are translated here. Same
+        # clinical-review caveat as above applies.
+        self.sci_complications_sw_keywords = {
+            "autonomic_dysreflexia": ["kichwa kinauma", "shinikizo la damu la juu", "jasho", "uso mwekundu", "pua imeziba"],
+            "respiratory_distress": ["shida ya kupumua", "siwezi kupumua", "kikohozi", "nimonia", "kuvuta chakula kwenye mapafu"],
+            "pressure_injury": ["kidonda cha kulala", "kidonda cha shinikizo", "jeraha", "ngozi kuharibika", "hatua ya 3", "hatua ya 4"],
+            "sepsis": ["homa", "baridi kali", "kuchanganyikiwa", "mapigo ya moyo ya haraka", "maambukizi"],
+            "urinary_retention": ["siwezi kukojoa", "maumivu ya kibofu", "kibofu kimejaa", "katheta imeziba"],
+        }
+
+        # Small set of common Kiswahili function words used as a lightweight
+        # heuristic to auto-detect language when the caller doesn't tell us
+        # (e.g. inbound SMS with no explicit language field). This is not a
+        # real language detector - it is a cheap fallback, and an explicit
+        # `language` argument (or the patient's `preferred_language`) always
+        # takes priority over this heuristic.
+        self._sw_stopwords = {
+            "na", "ya", "wa", "za", "la", "ni", "kwa", "sina", "nina",
+            "mimi", "yangu", "nimekuwa", "nasikia", "siwezi", "sijui",
+        }
+
         self.is_loaded = False
 
     def load_model(self):
@@ -108,11 +161,17 @@ class QuadriplegicTriageModel:
                 print(f"Model load error: {e}")
                 # Continue with rule-based fallback
 
+    def _detect_language(self, text: str) -> str:
+        """Cheap Kiswahili-vs-English heuristic fallback. See __init__ note."""
+        words = set(text.lower().split())
+        return "sw" if len(words & self._sw_stopwords) >= 2 else "en"
+
     def analyze_symptoms(
         self, 
         symptoms_text: str, 
         patient_context: Dict = None,
-        voice_transcript: str = None
+        voice_transcript: str = None,
+        language: Optional[str] = None,
     ) -> TriageResult:
         """
         Main triage analysis function.
@@ -121,6 +180,9 @@ class QuadriplegicTriageModel:
             symptoms_text: Patient-reported symptoms
             patient_context: Dict with disability_type, level_of_injury, etc.
             voice_transcript: Optional voice input transcription
+            language: "en" or "sw". If not given, falls back to
+                patient_context["preferred_language"] and then to a cheap
+                heuristic auto-detector.
 
         Returns:
             TriageResult with priority and recommendations
@@ -132,13 +194,18 @@ class QuadriplegicTriageModel:
         if voice_transcript:
             full_text += " " + voice_transcript.lower()
 
+        if not language and patient_context:
+            language = patient_context.get("preferred_language")
+        if language not in ("en", "sw"):
+            language = self._detect_language(full_text)
+
         # Step 1: Check for SCI-specific emergencies
-        sci_result = self._check_sci_complications(full_text, patient_context)
+        sci_result = self._check_sci_complications(full_text, patient_context, language)
         if sci_result:
             return sci_result
 
         # Step 2: Rule-based keyword analysis
-        keyword_priority, matched = self._keyword_analysis(full_text)
+        keyword_priority, matched = self._keyword_analysis(full_text, language)
 
         # Step 3: ML model inference (if available)
         ml_priority, ml_confidence = self._ml_inference(full_text)
@@ -173,7 +240,8 @@ class QuadriplegicTriageModel:
     def _check_sci_complications(
         self, 
         text: str, 
-        context: Dict
+        context: Dict,
+        language: str = "en",
     ) -> Optional[TriageResult]:
         """Check for spinal cord injury specific complications."""
         if not context:
@@ -185,7 +253,11 @@ class QuadriplegicTriageModel:
             return None
 
         for complication, data in self.sci_complications.items():
-            matches = sum(1 for kw in data["keywords"] if kw in text)
+            keywords_en = data["keywords"]
+            keywords_sw = self.sci_complications_sw_keywords.get(complication, [])
+            keywords = keywords_sw if language == "sw" else keywords_en
+
+            matches = sum(1 for kw in keywords if kw in text)
             if matches >= 2:  # At least 2 symptoms match
                 return TriageResult(
                     priority=data["priority"],
@@ -193,7 +265,7 @@ class QuadriplegicTriageModel:
                     recommended_action=data["action"],
                     urgency_minutes=data["urgency"],
                     reasoning=f"Detected {complication.replace('_', ' ')} - medical emergency common in SCI patients",
-                    matched_symptoms=[kw for kw in data["keywords"] if kw in text],
+                    matched_symptoms=[kw for kw in keywords if kw in text],
                     potential_conditions=[{
                         "condition": complication.replace('_', ' ').title(),
                         "probability": 0.9,
@@ -202,11 +274,16 @@ class QuadriplegicTriageModel:
                 )
         return None
 
-    def _keyword_analysis(self, text: str) -> Tuple[PriorityLevel, List[str]]:
-        """Rule-based keyword matching."""
-        matched_critical = [kw for kw in self.critical_keywords if kw in text]
-        matched_high = [kw for kw in self.high_keywords if kw in text]
-        matched_medium = [kw for kw in self.medium_keywords if kw in text]
+    def _keyword_analysis(self, text: str, language: str = "en") -> Tuple[PriorityLevel, List[str]]:
+        """Rule-based keyword matching, language-aware."""
+        if language == "sw":
+            critical, high, medium = self.critical_keywords_sw, self.high_keywords_sw, self.medium_keywords_sw
+        else:
+            critical, high, medium = self.critical_keywords, self.high_keywords, self.medium_keywords
+
+        matched_critical = [kw for kw in critical if kw in text]
+        matched_high = [kw for kw in high if kw in text]
+        matched_medium = [kw for kw in medium if kw in text]
 
         if matched_critical:
             return PriorityLevel.CRITICAL, matched_critical
@@ -309,16 +386,19 @@ def analyze_patient_symptoms(
     symptoms: str, 
     disability_type: str = "quadriplegia",
     level_of_injury: str = None,
-    is_pwd: bool = True
+    is_pwd: bool = True,
+    language: Optional[str] = None,
+    preferred_language: Optional[str] = None,
 ) -> Dict:
     """Convenience function for triage analysis."""
     context = {
         "disability_type": disability_type,
         "level_of_injury": level_of_injury,
-        "is_pwd": is_pwd
+        "is_pwd": is_pwd,
+        "preferred_language": preferred_language,
     }
 
-    result = triage_model.analyze_symptoms(symptoms, context)
+    result = triage_model.analyze_symptoms(symptoms, context, language=language)
 
     return {
         "priority": result.priority.value,
