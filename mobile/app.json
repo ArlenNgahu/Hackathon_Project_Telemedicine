@@ -1,0 +1,44 @@
+{
+  "expo": {
+    "name": "AfyaConnect",
+    "slug": "afyaconnect",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "scheme": "afyaconnect",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSMicrophoneUsageDescription": "AfyaConnect uses the microphone so you can speak your symptoms and control the app by voice.",
+        "NSSpeechRecognitionUsageDescription": "AfyaConnect converts your speech to text so you can report symptoms and navigate hands-free."
+      }
+    },
+    "android": {
+      "permissions": [
+        "RECORD_AUDIO"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "extra": {
+      "apiBaseUrl": "http://10.189.51.190:8000"
+    },
+    "plugins": [
+      "expo-speech-recognition"
+    ]
+  }
+}

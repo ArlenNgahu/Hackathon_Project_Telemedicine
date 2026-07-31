@@ -55,6 +55,17 @@ class CommunicationMode(PyEnum):
     VIDEO = "video"
     CAREGIVER_MEDIATED = "caregiver_mediated"
 
+
+def _pg_enum(py_enum):
+    """
+    Column(Enum(SomePyEnum)) sends the Python member *name* on insert by
+    default (e.g. "QUADRIPLEGIA"), but the Alembic migration creates the
+    native Postgres enum type using the lowercase member *values* (e.g.
+    "quadriplegia") - every insert/read of an enum column fails without
+    this. `values_callable` makes SQLAlchemy use `.value` instead.
+    """
+    return Enum(py_enum, values_callable=lambda obj: [e.value for e in obj])
+
 # ================= PATIENT MODEL =================
 
 class Patient(Base):
@@ -84,17 +95,17 @@ class Patient(Base):
     preferred_language = Column(String(10), default="en", nullable=False)
 
     # Disability Information (Critical for accessibility)
-    disability_type = Column(Enum(DisabilityType), default=DisabilityType.QUADRIPLEGIA)
+    disability_type = Column(_pg_enum(DisabilityType), default=DisabilityType.QUADRIPLEGIA)
     disability_description = Column(Text, nullable=True)  # Additional details
     disability_onset_date = Column(DateTime, nullable=True)
 
     # Assistive Technology Profile
-    primary_assistive_tech = Column(Enum(AssistiveTech), default=AssistiveTech.VOICE)
-    secondary_assistive_tech = Column(Enum(AssistiveTech), nullable=True)
+    primary_assistive_tech = Column(_pg_enum(AssistiveTech), default=AssistiveTech.VOICE)
+    secondary_assistive_tech = Column(_pg_enum(AssistiveTech), nullable=True)
     assistive_tech_details = Column(JSON, default={})  # Device-specific settings
 
     # Communication Preferences
-    preferred_communication = Column(Enum(CommunicationMode), default=CommunicationMode.VOICE)
+    preferred_communication = Column(_pg_enum(CommunicationMode), default=CommunicationMode.VOICE)
     communication_notes = Column(Text, nullable=True)  # Speech patterns, breathing support needs
 
     # Accessibility Settings
@@ -241,7 +252,7 @@ class TriageRecord(Base):
     symptoms_transcribed = Column(Text, nullable=True)  # Whisper transcription
 
     # AI Analysis
-    priority_level = Column(Enum(PriorityLevel), nullable=False)
+    priority_level = Column(_pg_enum(PriorityLevel), nullable=False)
     priority_confidence = Column(Float, nullable=False)  # 0.0 - 1.0
 
     # Triage Decision
@@ -257,7 +268,7 @@ class TriageRecord(Base):
     nurse_reviewed = Column(Boolean, default=False)
     nurse_override = Column(Boolean, default=False)
     nurse_notes = Column(Text, nullable=True)
-    final_priority = Column(Enum(PriorityLevel), nullable=True)  # After nurse review
+    final_priority = Column(_pg_enum(PriorityLevel), nullable=True)  # After nurse review
 
     # Outcome tracking
     actual_outcome = Column(String(50), nullable=True)  # What actually happened
@@ -293,7 +304,7 @@ class QueueTicket(Base):
     queue_type = Column(String(50), default="hospital")  # "hospital", "teleconsult", "home_visit"
 
     # Priority (Two-layer system)
-    clinical_priority = Column(Enum(PriorityLevel), nullable=False)
+    clinical_priority = Column(_pg_enum(PriorityLevel), nullable=False)
     accessibility_priority = Column(Integer, default=0)  # 0=none, 1=PWD standard, 2=urgent PWD
     composite_score = Column(Float, nullable=False)  # Lower = higher priority
 
@@ -353,7 +364,7 @@ class Appointment(Base):
     duration_minutes = Column(Integer, default=30)
 
     # Status
-    status = Column(Enum(AppointmentStatus), default=AppointmentStatus.SCHEDULED)
+    status = Column(_pg_enum(AppointmentStatus), default=AppointmentStatus.SCHEDULED)
 
     # Location (for hospital or home visit)
     location_address = Column(String(500), nullable=True)

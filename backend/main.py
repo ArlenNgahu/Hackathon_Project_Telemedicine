@@ -24,7 +24,7 @@ from backend.app.services.audit_service import write_audit_log, require_caregive
 
 from backend.app.db.session import get_db
 from backend.app.models.database import (
-    Patient, Appointment, TriageRecord,
+    Patient, Appointment, TriageRecord, Doctor,
     DisabilityType as DBDisabilityType,
     AssistiveTech as DBAssistiveTech,
     PriorityLevel as DBPriorityLevel,
@@ -67,6 +67,20 @@ app.add_middleware(
 )
 
 security = HTTPBearer()
+
+
+def _app_tech(db_tech: Optional[DBAssistiveTech]) -> "AssistiveTech":
+    """
+    Maps a DB AssistiveTech member (descriptive values: sip_and_puff,
+    switch_access, voice_control, ...) to the app-facing AssistiveTech
+    member (short tokens: sip_puff, switch, voice, ...) that match the
+    mobile app's i18n keys. Converts by member NAME, not value - the two
+    enums share member names but not values, so a value-based conversion
+    silently collapses every switch/sip-puff/voice patient to NONE.
+    """
+    if db_tech is not None and db_tech.name in AssistiveTech.__members__:
+        return AssistiveTech[db_tech.name]
+    return AssistiveTech.NONE
 
 # ============= ENUMS =============
 
@@ -169,6 +183,7 @@ class SymptomReport(BaseModel):
 
 class TriageResponse(BaseModel):
     """AI Triage result."""
+    triage_id: str
     priority: str
     confidence: float
     recommended_action: str
@@ -280,12 +295,7 @@ async def complete_patient_profile(
     )
     await db.commit()
 
-    primary_tech = (
-        AssistiveTech(current_patient.primary_assistive_tech.value)
-        if current_patient.primary_assistive_tech
-        and current_patient.primary_assistive_tech.value in AssistiveTech._value2member_map_
-        else AssistiveTech.NONE
-    )
+    primary_tech = _app_tech(current_patient.primary_assistive_tech)
 
     return {
         "success": True,
@@ -376,18 +386,22 @@ async def auth_me(current_patient: Patient = Depends(get_current_patient)):
         "first_name": current_patient.first_name,
         "last_name": current_patient.last_name,
         "phone_primary": current_patient.phone_primary,
+        "phone_emergency": current_patient.phone_emergency,
         "preferred_language": current_patient.preferred_language,
         "disability_type": current_patient.disability_type.value if current_patient.disability_type else None,
-        "primary_assistive_tech": current_patient.primary_assistive_tech.value if current_patient.primary_assistive_tech else None,
+        "primary_assistive_tech": _app_tech(current_patient.primary_assistive_tech).value,
+        "conditions": current_patient.chronic_conditions or [],
+        "medications": current_patient.medications or [],
+        "allergies": current_patient.allergies or [],
         "has_caregiver": current_patient.has_caregiver,
+        "caregiver_name": current_patient.caregiver_name,
+        "caregiver_phone": current_patient.caregiver_phone,
         "caregiver_can_schedule": current_patient.caregiver_can_schedule,
         "caregiver_can_consent": current_patient.caregiver_can_consent,
-        "ui_recommendations": _get_ui_recommendations(
-            AssistiveTech(current_patient.primary_assistive_tech.value)
-            if current_patient.primary_assistive_tech
-            and current_patient.primary_assistive_tech.value in AssistiveTech._value2member_map_
-            else AssistiveTech.NONE
-        ),
+        "address_line1": current_patient.address_line1,
+        "city": current_patient.city,
+        "region": current_patient.region,
+        "ui_recommendations": _get_ui_recommendations(_app_tech(current_patient.primary_assistive_tech)),
     }
 
 def _get_ui_recommendations(tech: AssistiveTech) -> Dict:
@@ -469,10 +483,55 @@ async def report_symptoms(report: SymptomReport, db: AsyncSession = Depends(get_
                 related_to="triage", related_id=triage_record.uuid,
             )
 
-        return TriageResponse(**result)
+        return TriageResponse(triage_id=triage_record.uuid, **result)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Triage analysis failed: {str(e)}")
+
+# Matches mobile's src/services/api.js mock fixtures, so a real appointment's
+# placeholder provider text reads the same as a mock one when no doctor is
+# assigned yet.
+_PROVIDER_DEFAULT = {
+    "teleconsult": "AfyaConnect teleconsult",
+    "hospital": "Hospital visit",
+    "home_visit": "Home visit nurse",
+}
+
+
+@app.get("/appointments")
+async def list_appointments(
+    db: AsyncSession = Depends(get_db),
+    current_patient: Patient = Depends(get_current_patient),
+):
+    """
+    Return the authenticated patient's appointments, soonest first.
+    patient_id is not accepted as a query param - always derived from the
+    auth token, so a patient can only ever read their own appointments.
+    """
+    result = await db.execute(
+        select(Appointment)
+        .where(Appointment.patient_id == current_patient.id)
+        .order_by(Appointment.scheduled_time.asc())
+    )
+    appointments = result.scalars().all()
+
+    items = []
+    for a in appointments:
+        provider = _PROVIDER_DEFAULT.get(a.appointment_type, "Care team")
+        if a.doctor_id:
+            doctor = await db.get(Doctor, a.doctor_id)
+            if doctor:
+                provider = f"Dr. {doctor.first_name} {doctor.last_name}"
+        items.append({
+            "id": a.uuid,
+            "type": a.appointment_type,
+            "provider": provider,
+            "starts_at": a.scheduled_time.isoformat(),
+            "joinable": a.appointment_type == "teleconsult" and a.status.value in ("scheduled", "confirmed"),
+        })
+
+    return {"appointments": items}
+
 
 @app.post("/appointments")
 async def create_appointment(
