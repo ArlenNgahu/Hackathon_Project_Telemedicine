@@ -4,42 +4,42 @@
 ║           "Healthcare Without Barriers"                                      ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║                                                                              ║
-║  🎯 PROBLEM: Quadriplegic patients struggle to access healthcare            ║
+║      PROBLEM: Quadriplegic patients struggle to access healthcare            ║
 ║     • Difficult to travel to hospitals                                       ║
 ║     • Long waiting times in queues                                           ║
 ║     • Risk of complications (autonomic dysreflexia)                          ║
 ║                                                                              ║
-║  💡 SOLUTION: AI-powered, accessibility-first telemedicine                  ║
+║      SOLUTION: AI-powered, accessibility-first telemedicine                  ║
 ║     • Voice control - no hands needed                                        ║
 ║     • Eye tracking - gaze-based interaction                                  ║
 ║     • Smart triage - detects emergencies like AD                             ║
 ║     • Virtual queue - scheduled slots, no waiting                            ║
 ║                                                                              ║
-║  🔧 TECH STACK:                                                              ║
+║     TECH STACK:                                                              ║
 ║     Backend:  FastAPI + PostgreSQL + Redis                                   ║
 ║     AI/ML:    scikit-learn + Custom NLP                                      ║
-║     Frontend: HTML5 + Web Speech API (WCAG 2.1 AA)                          ║
+║      Frontend: HTML5 + Web Speech API (WCAG 2.1 AA)                          ║
 ║     Deploy:   Docker + AWS ECS + Terraform                                   ║
 ║                                                                              ║
-║  📊 IMPACT METRICS:                                                          ║
+║     IMPACT METRICS:                                                          ║
 ║     • 70% reduction in patient wait times                                    ║
 ║     • 40% reduction in hospital congestion                                   ║
 ║     • 3x increase in PWD healthcare access                                   ║
 ║     • 95% accuracy in SCI complication detection                             ║
 ║                                                                              ║
-║  💰 BUSINESS MODEL:                                                          ║
+║     BUSINESS MODEL:                                                          ║
 ║     • B2C: $3 per consultation                                               ║
 ║     • B2B: $50K/year county contracts                                        ║
 ║     • Margin: 31% ($0.93 profit per consult)                                 ║
 ║     • AWS Cost: ~$484/month                                                  ║
 ║                                                                              ║
-║  🏥 CLINICAL INNOVATIONS:                                                    ║
+║     CLINICAL INNOVATIONS:                                                    ║
 ║     • Autonomic Dysreflexia early detection                                  ║
 ║     • Two-layer priority queue (clinical + accessibility)                    ║
 ║     • Teleconsult fallback for long waits                                    ║
 ║     • Caregiver proxy mode with audit trail                                  ║
 ║                                                                              ║
-║  ♿ ACCESSIBILITY FEATURES:                                                  ║
+║     ACCESSIBILITY FEATURES:                                                  ║
 ║     ✓ Voice commands (hands-free)                                            ║
 ║     ✓ Eye tracking support                                                   ║
 ║     ✓ Switch access (single-button)                                          ║
@@ -48,7 +48,7 @@
 ║     ✓ Screen reader optimized                                                ║
 ║     ✓ Caregiver delegation                                                   ║
 ║                                                                              ║
-║  📦 DELIVERABLES:                                                            ║
+║     DELIVERABLES:                                                            ║
 ║     ✓ System Architecture & Diagrams                                         ║
 ║     ✓ FastAPI Backend (6 endpoints)                                          ║
 ║     ✓ Database Schema (7 tables)                                             ║
@@ -59,6 +59,6 @@
 ║     ✓ Training Datasets (4 CSV files)                                        ║
 ║     ✓ Documentation & README                                                 ║
 ║                                                                              ║
-║  🚀 STATUS: Ready for hackathon demo & MVP deployment                        ║
+║     STATUS: Ready for hackathon demo & MVP deployment                        ║
 ║                                                                              ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
